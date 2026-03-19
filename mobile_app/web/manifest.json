@@ -1,6 +1,6 @@
 {
-    "name": "signal_lost",
-    "short_name": "signal_lost",
+    "name": "signallost",
+    "short_name": "signallost",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
