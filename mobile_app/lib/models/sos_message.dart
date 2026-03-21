@@ -44,7 +44,7 @@ class SosMessage {
 
   // Format coordinates for display
   String get formattedCoordinates =>
-      '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+      '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}, ${altitude.toStringAsFixed(2)}';
 
   // Format accuracy for display (rounds to 1 decimal place)
   String get formattedAccuracy => 'Accuracy: ~${accuracy.toStringAsFixed(1)}m';

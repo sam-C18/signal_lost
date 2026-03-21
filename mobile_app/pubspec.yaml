@@ -12,11 +12,11 @@ dependencies:
     sdk:         flutter
 
   geolocator: ^10.0.0
-  permission_handler: ^11.0.0
+  permission_handler: ^12.0.1
 
 
   # Add these for production features:
-  # flutter_bluetooth_serial: ^0.4.0   # Bluetooth mesh
+  flutter_bluetooth_serial: ^0.4.0   # Bluetooth mesh
   # wifi_iot: ^0.3.19                  # Wi-Fi Direct / P2P control
   # nearby_connections: ^4.0.0         # Google Nearby (BT + Wi-Fi P2P unified)
   # geolocator: ^10.0.0                # Real GPS

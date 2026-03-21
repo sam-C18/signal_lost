@@ -2,7 +2,6 @@
 class AppStatus {
   final bool bluetoothEnabled;
   final bool locationEnabled;
-  final bool internetConnected;
 
   /// Wi-Fi Direct (P2P) permission — allows device-to-device WiFi without
   /// a router. Used as a secondary mesh channel alongside Bluetooth.
@@ -13,7 +12,6 @@ class AppStatus {
   const AppStatus({
     required this.bluetoothEnabled,
     required this.locationEnabled,
-    required this.internetConnected,
     required this.wifiDirectEnabled,
   });
 
@@ -28,13 +26,11 @@ class AppStatus {
   AppStatus copyWith({
     bool? bluetoothEnabled,
     bool? locationEnabled,
-    bool? internetConnected,
     bool? wifiDirectEnabled,
   }) {
     return AppStatus(
       bluetoothEnabled: bluetoothEnabled ?? this.bluetoothEnabled,
       locationEnabled: locationEnabled ?? this.locationEnabled,
-      internetConnected: internetConnected ?? this.internetConnected,
       wifiDirectEnabled: wifiDirectEnabled ?? this.wifiDirectEnabled,
     );
   }

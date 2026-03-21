@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/app_status.dart';
+// import '../models/app_status.dart';
+import '../services/gps_service.dart';
+import '../services/bluetooth_service.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/status_indicator.dart';
 import '../widgets/sos_button.dart';
@@ -14,20 +16,67 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Mock status — in production, these come from platform services
-  final AppStatus _status = const AppStatus(
-    bluetoothEnabled: true,
-    locationEnabled: true,
-    internetConnected: false,
-    wifiDirectEnabled: false, // off until user grants Wi-Fi Direct permission
-  );
 
   bool _isSending = false;
 
+  final GpsService _gpsService = GpsService();
+  final BluetoothService btService = BluetoothService();
+  bool _locationEnabled = false;
+  bool _bluetoothEnabled = false;
+  bool _wifiDirectEnabled = false;
+  bool get _canSendSos{
+    return _bluetoothEnabled && _locationEnabled;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initServices();
+  }
+  Future<void> _initServices() async{
+    await _checkBluetooth();
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _checkGps();
+  }
+Future<void> _checkBluetooth() async {
+  final hasPermission = await btService.requestBluetoothPermissions();
+
+  // Force Bluetooth ON (popup)
+  await btService.enableBluetoothHardware();
+
+  // Thoda sa wait (important, warna false aa sakta hai)
+  await Future.delayed(const Duration(milliseconds: 500));
+
+  final isBtOn = await btService.isBluetoothEnabled();
+
+  if (!mounted) return;
+
+  setState(() {
+    _bluetoothEnabled = hasPermission && isBtOn;
+  });
+}
+  
+  Future<void> _checkGps() async {
+    final hasPermission = await _gpsService.requestLocationPermission();
+    final serviceEnabled = await _gpsService.isLocationServiceEnabled();
+
+    if (!mounted) return;
+
+    setState(() {
+      _locationEnabled = hasPermission && serviceEnabled;
+    });
+  }
+
   void _handleSosPressed() async {
-    if (!_status.canSendSos) return;
+    if (!_canSendSos) return;
 
     setState(() => _isSending = true);
+
+    final coords = await _gpsService.getCoordinates();
+
+    if (coords == null) {
+      return;
+    }
 
     // Simulate a short activation delay before navigating
     await Future.delayed(const Duration(milliseconds: 800));
@@ -108,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Status chips for BT / Wi-Fi Direct / GPS / Internet ──────────────────
+  // ── Status chips for BT / Wi-Fi Direct / GPS ──────────────────
   Widget _buildStatusBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -124,29 +173,22 @@ class _HomeScreenState extends State<HomeScreen> {
           StatusIndicator(
             icon: Icons.bluetooth_rounded,
             label: 'BT',
-            statusText: _status.bluetoothEnabled ? 'ON' : 'OFF',
-            isActive: _status.bluetoothEnabled,
+            statusText: _bluetoothEnabled ? 'ON' : 'OFF',
+            isActive: _bluetoothEnabled,
           ),
           Container(width: 1, height: 20, color: AppTheme.borderColor),
           StatusIndicator(
             icon: Icons.wifi_tethering_rounded,
             label: 'P2P',
-            statusText: _status.wifiDirectEnabled ? 'ON' : 'OFF',
-            isActive: _status.wifiDirectEnabled,
+            statusText: _wifiDirectEnabled ? 'ON' : 'OFF',
+            isActive: _wifiDirectEnabled,
           ),
           Container(width: 1, height: 20, color: AppTheme.borderColor),
           StatusIndicator(
             icon: Icons.gps_fixed_rounded,
             label: 'GPS',
-            statusText: _status.locationEnabled ? 'ON' : 'OFF',
-            isActive: _status.locationEnabled,
-          ),
-          Container(width: 1, height: 20, color: AppTheme.borderColor),
-          StatusIndicator(
-            icon: Icons.wifi_rounded,
-            label: 'NET',
-            statusText: _status.internetConnected ? 'ON' : 'OFF',
-            isActive: _status.internetConnected,
+            statusText: _locationEnabled ? 'ON' : 'OFF',
+            isActive: _locationEnabled,
           ),
         ],
       ),
@@ -159,21 +201,21 @@ class _HomeScreenState extends State<HomeScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Warning banner if permissions missing
-        if (!_status.canSendSos) _buildWarningBanner(),
+        if (!_canSendSos) _buildWarningBanner(),
         const SizedBox(height: 20),
         SosButton(
-          isEnabled: _status.canSendSos,
+          isEnabled: _canSendSos,
           isSending: _isSending,
           onPressed: _handleSosPressed,
         ),
         const SizedBox(height: 28),
         Text(
-          _status.canSendSos
+          _canSendSos
               ? 'PRESS SOS TO SEND EMERGENCY SIGNAL'
               : 'ENABLE BLUETOOTH OR WI-FI DIRECT + GPS',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: _status.canSendSos
+            color: _canSendSos
                 ? AppTheme.textSecondary
                 : AppTheme.warningOrange,
             fontSize: 11,
@@ -224,19 +266,13 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildModeChip(
             Icons.bluetooth_searching_rounded,
             'BT MESH',
-            _status.bluetoothEnabled,
+            _bluetoothEnabled,
           ),
           const SizedBox(width: 8),
           _buildModeChip(
             Icons.wifi_tethering_rounded,
             'WI-FI P2P',
-            _status.wifiDirectEnabled,
-          ),
-          const SizedBox(width: 8),
-          _buildModeChip(
-            Icons.signal_wifi_off_rounded,
-            'NO INTERNET',
-            false,
+            _wifiDirectEnabled,
           ),
         ],
       ),

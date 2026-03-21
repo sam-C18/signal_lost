@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 
 /// A compact row showing an icon, label, and color-coded status dot.
-/// Used on the Home screen for Bluetooth / GPS / Internet.
+/// Used on the Home screen for Bluetooth / GPS /P2P.
 class StatusIndicator extends StatelessWidget {
   final IconData icon;
   final String label;
