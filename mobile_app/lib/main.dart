@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 import 'screens/sos_active_screen.dart';
+import 'screens/sos_confirmation_screen.dart';
 import 'screens/settings_screen.dart';
+import 'models/sos_message.dart';
+import 'network/wifi_direct_manager.dart';
+import 'network/ble_manager.dart';
 import 'widgets/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize mesh networking in background
+  _initializeMeshNetworking();
 
   // Lock to portrait for emergency usability
   SystemChrome.setPreferredOrientations([
@@ -27,6 +34,26 @@ void main() {
   runApp(const SignalLostApp());
 }
 
+/// Start mesh networking (WiFi Direct + BLE) in background
+Future<void> _initializeMeshNetworking() async {
+  try {
+    final wifiManager = WifiDirectManager();
+    final bleManager = BleManager();
+
+    // Start WiFi Direct advertising and discovery
+    await wifiManager.startAdvertising(deviceName: 'SignalLost_Device');
+    await wifiManager.startDiscovery();
+
+    // Start BLE advertising and scanning
+    await bleManager.startAdvertising(deviceName: 'SignalLost_Device');
+    await bleManager.startScanning();
+
+    print('[Main] Mesh networking initialized');
+  } catch (e) {
+    print('[Main] Mesh networking init error: $e');
+  }
+}
+
 class SignalLostApp extends StatelessWidget {
   const SignalLostApp({super.key});
 
@@ -43,6 +70,15 @@ class SignalLostApp extends StatelessWidget {
         '/': (context) => const HomeScreen(),
         '/sos-active': (context) => const SosActiveScreen(),
         '/settings': (context) => const SettingsScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/sos-confirm') {
+          final message = settings.arguments as SosMessage;
+          return MaterialPageRoute(
+            builder: (context) => SosConfirmationScreen(message: message),
+          );
+        }
+        return null;
       },
     );
   }

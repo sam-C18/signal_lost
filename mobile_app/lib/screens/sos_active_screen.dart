@@ -6,7 +6,12 @@ import '../widgets/app_theme.dart';
 /// Screen shown after SOS is activated.
 /// Displays live message ID, GPS coordinates, and relay status.
 class SosActiveScreen extends StatefulWidget {
-  const SosActiveScreen({super.key});
+  final SosMessage? message;
+
+  const SosActiveScreen({
+    super.key,
+    this.message,
+  });
 
   @override
   State<SosActiveScreen> createState() => _SosActiveScreenState();
@@ -41,8 +46,78 @@ class _SosActiveScreenState extends State<SosActiveScreen>
       CurvedAnimation(parent: _flashController, curve: Curves.easeInOut),
     );
 
-    // Create SOS message with GPS data
-    _initializeSosMessage();
+    // Initialize SOS message and broadcasting
+    if (widget.message != null) {
+      // Message passed from confirmation screen
+      _initializeWithMessage(widget.message!);
+    } else {
+      // Fallback: create new message (for backward compatibility)
+      _initializeSosMessage();
+    }
+  }
+
+  /// Initialize with message from confirmation screen and start broadcasting
+  Future<void> _initializeWithMessage(SosMessage message) async {
+    try {
+      _message = message;
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      // Broadcast SOS via mesh networking
+      await _sosService.broadcastSos(message);
+
+      // Listen for incoming relay messages from other devices
+      if (!mounted) return;
+      _subscribeToRelayMessages();
+
+      // Optional: keep relay simulation for UI feedback animation
+      _sosService.startRelaySimulation(_message, (updated) {
+        if (mounted) setState(() => _message = updated);
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  /// Subscribe to incoming relay messages from other devices
+  void _subscribeToRelayMessages() {
+    // Listen to WiFi Direct messages
+    _sosService.wifiDirectManager.incomingMessages.listen(
+      (incomingMessage) {
+        print('[SosActiveScreen] Received relay: ${incomingMessage.messageId}');
+        // Relay the message (will check dedup cache)
+        _sosService.broadcastSosRelay(incomingMessage, (relayedMessage) {
+          if (relayedMessage != null && mounted) {
+            setState(() => _message = relayedMessage);
+          }
+        });
+      },
+      onError: (err) {
+        print('[SosActiveScreen] WiFi Direct listen error: $err');
+      },
+    );
+
+    // Listen to BLE messages
+    _sosService.bleManager.incomingMessages.listen(
+      (incomingMessage) {
+        print('[SosActiveScreen] Received BLE relay: ${incomingMessage.messageId}');
+        // Relay the message (will check dedup cache)
+        _sosService.broadcastSosRelay(incomingMessage, (relayedMessage) {
+          if (relayedMessage != null && mounted) {
+            setState(() => _message = relayedMessage);
+          }
+        });
+      },
+      onError: (err) {
+        print('[SosActiveScreen] BLE listen error: $err');
+      },
+    );
   }
 
   /// Create the SOS message with real GPS coordinates

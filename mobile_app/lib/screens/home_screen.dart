@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 // import '../models/app_status.dart';
 import '../services/gps_service.dart';
 import '../services/bluetooth_service.dart';
+import '../services/sos_service.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/status_indicator.dart';
 import '../widgets/sos_button.dart';
@@ -21,9 +23,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final GpsService _gpsService = GpsService();
   final BluetoothService btService = BluetoothService();
+  final SosService _sosService = SosService();
   bool _locationEnabled = false;
   bool _bluetoothEnabled = false;
-  bool _wifiDirectEnabled = false;
+  bool _wifiDirectManager = false;
+
+  // Bluetooth messaging state
+  int _btSentCount = 0;
+  int _btReceivedCount = 0;
+
   bool get _canSendSos{
     return _bluetoothEnabled && _locationEnabled;
   }
@@ -32,11 +40,38 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initServices();
+    _subscribeToBluetoothMessages();
+  }
+
+  /// Subscribe to incoming Bluetooth messages
+  void _subscribeToBluetoothMessages() {
+    btService.incomingMessages.listen((message) {
+      if (!mounted) return;
+      setState(() {
+        _btReceivedCount = btService.receivedCount;
+      });
+    });
   }
   Future<void> _initServices() async{
     await _checkBluetooth();
     await Future.delayed(const Duration(milliseconds: 500));
     await _checkGps();
+    // Request WiFi Direct permission (Android 13+)
+    await _requestNearbyWifiPermission();
+  }
+
+  /// Request NEARBY_WIFI_DEVICES permission for WiFi Direct (Android 13+)
+  Future<void> _requestNearbyWifiPermission() async {
+    try {
+      final status = await Permission.nearbyWifiDevices.request();
+      if (status.isDenied) {
+        print('NEARBY_WIFI_DEVICES permission denied');
+      } else if (status.isGranted) {
+        print('NEARBY_WIFI_DEVICES permission granted');
+      }
+    } catch (e) {
+      print('Error requesting WiFi permission: $e');
+    }
   }
 Future<void> _checkBluetooth() async {
   final hasPermission = await btService.requestBluetoothPermissions();
@@ -72,19 +107,28 @@ Future<void> _checkBluetooth() async {
 
     setState(() => _isSending = true);
 
-    final coords = await _gpsService.getCoordinates();
+    try {
+      // Create SOS message with GPS and device ID
+      final sosMessage = await _sosService.createSosMessage();
 
-    if (coords == null) {
-      return;
+      if (!mounted) return;
+      setState(() => _isSending = false);
+
+      // Navigate to confirmation screen to review before broadcasting
+      Navigator.pushNamed(context, '/sos-confirm', arguments: sosMessage);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+
+      // Show error snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.sosRed,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
-
-    // Simulate a short activation delay before navigating
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-    setState(() => _isSending = false);
-
-    Navigator.pushNamed(context, '/sos-active');
   }
 
   @override
@@ -180,8 +224,8 @@ Future<void> _checkBluetooth() async {
           StatusIndicator(
             icon: Icons.wifi_tethering_rounded,
             label: 'P2P',
-            statusText: _wifiDirectEnabled ? 'ON' : 'OFF',
-            isActive: _wifiDirectEnabled,
+            statusText: _wifiDirectManager ? 'ON' : 'OFF',
+            isActive: _wifiDirectManager,
           ),
           Container(width: 1, height: 20, color: AppTheme.borderColor),
           StatusIndicator(
@@ -221,6 +265,17 @@ Future<void> _checkBluetooth() async {
             fontSize: 11,
             letterSpacing: 2,
             fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Bluetooth messaging stats
+        Text(
+          'BT: Sent: $_btSentCount | Received: $_btReceivedCount',
+          style: const TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: 10,
+            letterSpacing: 0.5,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ],
@@ -272,7 +327,7 @@ Future<void> _checkBluetooth() async {
           _buildModeChip(
             Icons.wifi_tethering_rounded,
             'WI-FI P2P',
-            _wifiDirectEnabled,
+            _wifiDirectManager,
           ),
         ],
       ),

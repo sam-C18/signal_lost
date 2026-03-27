@@ -13,16 +13,15 @@ dependencies:
 
   geolocator: ^10.0.0
   permission_handler: ^12.0.1
-
-
-  # Add these for production features:
   flutter_bluetooth_serial: ^0.4.0   # Bluetooth mesh
-  # wifi_iot: ^0.3.19                  # Wi-Fi Direct / P2P control
-  # nearby_connections: ^4.0.0         # Google Nearby (BT + Wi-Fi P2P unified)
-  # geolocator: ^10.0.0                # Real GPS
-  # permission_handler: ^11.0.0        # Runtime permission requests
-  # vibration: ^1.7.3                  # Haptic feedback
-  # flutter_local_notifications: ^16.0.0 # Background alerts
+
+  # Mesh networking & internet gateway:
+  nearby_connections: ^4.0.0         # Google Nearby (BT + Wi-Fi P2P unified)
+  flutter_reactive_ble: ^5.4.1        # BLE scanning/advertising fallback
+  connectivity_plus: ^6.0.0           # Internet availability detection
+  http: ^1.1.0                        # HTTP POST to backend
+  device_info_plus: ^10.0.0           # Device ID (brand + model)
+  uuid: ^4.0.0                        # Unique ID generation
 
   # Android — add to AndroidManifest.xml:
   #   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
